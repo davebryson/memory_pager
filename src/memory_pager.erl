@@ -29,6 +29,7 @@
     set/3,
     num_of_pages/1,
     pagesize_in_bytes/1,
+    pagenum_for_byte_index/2,
     collect/1,
     truncate_buffer/2
 ]).
@@ -41,12 +42,17 @@ new() ->
     new(?PAGE_SIZE).
 
 %% @doc Create a new memory pager with the given page size.  Note:
-%% 'PageSize' must be a power of 2 in 'bytes'.
-new(PageSize) when PageSize rem 2 =:= 0 ->
-    {
-        array:new([{size, ?NUM_PAGES}, {fixed, false}, {default, nil}]),
-        PageSize
-    }.
+%% 'PageSize' must be a power of 2 in 'bytes' or an error occurs.
+new(PageSize) ->
+    case power_of_two(PageSize) of
+        true ->
+            {
+                array:new([{size, ?NUM_PAGES}, {fixed, false}, {default, nil}]),
+                PageSize
+            };
+        _ ->
+            erlang:error({badarg, not_power_of_two})
+    end.
 
 %% @doc Get a page by page num.
 %% Returns {ok, Page, State} | {none, State} if the page doesn't exist
@@ -68,6 +74,10 @@ set(PageNum, Buffer, {Pages, Size}) ->
 %% @docs Return the number of pages
 num_of_pages({Pages, _}) ->
     array:sparse_size(Pages).
+
+%% @doc return the page number for the given byte index
+pagenum_for_byte_index(Index, {_, Size}) ->
+    Index div Size.
 
 %% @doc Return the page size. This is set on creation
 pagesize_in_bytes({_, Size}) ->
@@ -101,3 +111,10 @@ truncate_buffer(Buffer, Size) ->
     Diff = Size - byte_size(Buffer),
     Zeros = <<0:Diff/unit:8>>,
     <<Buffer/binary, Zeros/binary>>.
+
+%% Return true if Value is a power of two
+power_of_two(Value) ->
+    case (Value band (Value - 1)) of
+        0 -> true;
+        _ -> false
+    end.

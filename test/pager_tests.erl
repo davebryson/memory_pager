@@ -78,3 +78,12 @@ truncate_test() ->
     <<1, 1, 1, 0>> = memory_pager:truncate_buffer(<<1, 1, 1>>, 4),
 
     ok.
+
+misc_test() ->
+    ?assertError({badarg, not_power_of_two}, memory_pager:new(1000)),
+    Mp = memory_pager:new(),
+    0 = memory_pager:pagenum_for_byte_index(0, Mp),
+    0 = memory_pager:pagenum_for_byte_index(1000, Mp),
+    1 = memory_pager:pagenum_for_byte_index(2000, Mp),
+    2 = memory_pager:pagenum_for_byte_index(3000, Mp),
+    ok.
