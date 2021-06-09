@@ -86,4 +86,5 @@ misc_test() ->
     0 = memory_pager:pagenum_for_byte_index(1000, Mp),
     1 = memory_pager:pagenum_for_byte_index(2000, Mp),
     2 = memory_pager:pagenum_for_byte_index(3000, Mp),
+    97 = memory_pager:pagenum_for_byte_index(100000, Mp),
     ok.
