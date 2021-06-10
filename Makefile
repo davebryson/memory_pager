@@ -4,3 +4,6 @@ tests:
 
 build:
 	rebar3 compile
+
+docs:
+	rebar3 edoc
