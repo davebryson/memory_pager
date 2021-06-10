@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module memory_pager</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module memory_pager</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>    
+A utility to create small memory buffers for an application without needing to allocate    
+one big memory buffer.
+
+
+<h2><a name="description">Description</a></h2><p>    
+A utility to create small memory buffers for an application without needing to allocate    
+one big memory buffer. For example, maybe you need to reference data by bytes at random    
+locations but you don't know which locations use. Or, you're processing    
+chunks that may live at different byte positions. Rather than trying to create 1 large    
+buffer to handle this, you can use memory_page to allocate only the buffers needed.</p>
+  
+    Say you have data at bit positions: 10, 1048, and will have others at higher ranges. You
+    could use this:
+    <pre>    1 big buffer
+    [ | | | | | | ... ]
+    0                 4k</pre><p>    
+Even though you may not need it all. Or you could do this: Use Smaller buffers at    
+differnt offsets on demand:</p>
+  
+    <pre>    [0] -&gt; [ | | ...]
+           0       1023</pre>
+   <pre>    [1] -&gt; [ | | ...]
+          1024     2048</pre>
+  
+    Memory Pager does the latter.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-page">page()</a></h3>
+<p><tt>page() = {Offset::pos_integer(), Buffer::binary()}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-state">state()</a></h3>
+<p><tt>state() = {Pages::[<a href="#type-page">page()</a>], PageSize::pos_integer()}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#collect-1">collect/1</a></td><td>Return a list of all valid pages.</td></tr>
+<tr><td valign="top"><a href="#get-2">get/2</a></td><td>Get a page by page num.</td></tr>
+<tr><td valign="top"><a href="#new-0">new/0</a></td><td>Create a new memory pager with a default page size of 1024 bytes.</td></tr>
+<tr><td valign="top"><a href="#new-1">new/1</a></td><td>Create a new memory pager with the given page size.</td></tr>
+<tr><td valign="top"><a href="#num_of_pages-1">num_of_pages/1</a></td><td>Return the number of pages.</td></tr>
+<tr><td valign="top"><a href="#pagenum_for_byte_index-2">pagenum_for_byte_index/2</a></td><td>return the page number for the given byte index.</td></tr>
+<tr><td valign="top"><a href="#pagesize_in_bytes-1">pagesize_in_bytes/1</a></td><td>Return the page size.</td></tr>
+<tr><td valign="top"><a href="#set-3">set/3</a></td><td>Insert or update a buffer at the given page number.</td></tr>
+<tr><td valign="top"><a href="#truncate_buffer-2">truncate_buffer/2</a></td><td></td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="collect-1">collect/1</a></h3>
+<div class="spec">
+<p><tt>collect(State::<a href="#type-state">state()</a>) -&gt; [{PageNum::pos_integer(), Page::<a href="#type-page">page()</a>}]</tt><br></p>
+<p> </p>
+</div><p>Return a list of all valid pages. Each entry in the list
+  contains {PageNum, Page}.</p>
+
+<h3 class="function"><a name="get-2">get/2</a></h3>
+<div class="spec">
+<p><tt>get(PageNum::pos_integer(), State::<a href="#type-state">state()</a>) -&gt; {none, <a href="#type-state">state()</a>} | {ok, Page::<a href="#type-page">page()</a>, <a href="#type-state">state()</a>}</tt><br></p>
+<p> </p>
+</div><p>Get a page by page num.</p>
+
+<h3 class="function"><a name="new-0">new/0</a></h3>
+<div class="spec">
+<p><tt>new() -&gt; <a href="#type-state">state()</a></tt><br></p>
+<p> </p>
+</div><p>Create a new memory pager with a default page size of 1024 bytes</p>
+
+<h3 class="function"><a name="new-1">new/1</a></h3>
+<div class="spec">
+<p><tt>new(PageSize::pos_integer()) -&gt; <a href="#type-state">state()</a> | <a href="/Users/dbryson/projects/erts/doc/erlang.html#type-throw">erlang:throw</a>({badarg, not_power_of_two})</tt><br></p>
+<p> </p>
+</div><p>Create a new memory pager with the given page size.  Note:
+  'PageSize' must be a power of 2 in 'bytes' or an error occurs.</p>
+
+<h3 class="function"><a name="num_of_pages-1">num_of_pages/1</a></h3>
+<div class="spec">
+<p><tt>num_of_pages(State::<a href="#type-state">state()</a>) -&gt; pos_integer()</tt><br></p>
+<p> </p>
+</div><p>Return the number of pages</p>
+
+<h3 class="function"><a name="pagenum_for_byte_index-2">pagenum_for_byte_index/2</a></h3>
+<div class="spec">
+<p><tt>pagenum_for_byte_index(Index::pos_integer(), State::<a href="#type-state">state()</a>) -&gt; pos_integer()</tt><br></p>
+<p> </p>
+</div><p>return the page number for the given byte index</p>
+
+<h3 class="function"><a name="pagesize_in_bytes-1">pagesize_in_bytes/1</a></h3>
+<div class="spec">
+<p><tt>pagesize_in_bytes(State::<a href="#type-state">state()</a>) -&gt; pos_integer()</tt><br></p>
+<p> </p>
+</div><p>Return the page size. This is set on creation</p>
+
+<h3 class="function"><a name="set-3">set/3</a></h3>
+<div class="spec">
+<p><tt>set(PageNum::pos_integer(), Buffer::binary(), State::<a href="#type-state">state()</a>) -&gt; {ok, boolean(), <a href="#type-state">state()</a>}</tt><br></p>
+<p> </p>
+</div><p>Insert or update a buffer at the given page number. If the buffer
+  is not the same as the Page size, it will be truncated to fit the Page size.</p>
+
+<h3 class="function"><a name="truncate_buffer-2">truncate_buffer/2</a></h3>
+<div class="spec">
+<p><tt>truncate_buffer(Buffer, Size) -&gt; any()</tt></p>
+<p> </p>
+</div>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc</i></p>
+</body>
+</html>

@@ -10,7 +10,7 @@ gen_pages(N, State) ->
 g_pages(N, State, N) ->
     State;
 g_pages(N, State, Counter) ->
-    S = memory_pager:set(Counter, mock_buffer(1), State),
+    {ok, _, S} = memory_pager:set(Counter, mock_buffer(1), State),
     g_pages(N, S, Counter + 1).
 
 api_test() ->
@@ -56,7 +56,9 @@ api_test() ->
 
     %% Change a bunch of bytes to 0
     ChangeBuf = <<1:2/unit:8, 0:1022/unit:8>>,
-    Mp2 = memory_pager:set(2, ChangeBuf, Mp1),
+    {ok, DidChange, Mp2} = memory_pager:set(2, ChangeBuf, Mp1),
+    true = DidChange,
+
     {ok, {Off2, Buf1}, _} = memory_pager:get(2, Mp2),
     ?assertEqual(ChangeBuf, Buf1),
 
