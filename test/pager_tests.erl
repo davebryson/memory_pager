@@ -68,16 +68,16 @@ api_test() ->
 
 truncate_test() ->
     %% Buffer is correct, do nothing
-    <<1, 1, 1, 1>> = memory_pager:truncate_buffer(<<1, 1, 1, 1>>, 4),
+    <<1, 1, 1, 1>> = memory_pager:truncate_buffer(<<1, 1, 1, 1>>, 4, 4),
 
     %% To big
-    <<1, 1, 1, 1>> = memory_pager:truncate_buffer(<<1, 1, 1, 1, 2, 2, 2, 2>>, 4),
+    <<1, 1, 1, 1>> = memory_pager:truncate_buffer(<<1, 1, 1, 1, 2, 2, 2, 2>>, 8, 4),
 
     %% To small
-    <<0, 0, 0, 0>> = memory_pager:truncate_buffer(<<>>, 4),
-    <<1, 0, 0, 0>> = memory_pager:truncate_buffer(<<1>>, 4),
-    <<1, 1, 0, 0>> = memory_pager:truncate_buffer(<<1, 1>>, 4),
-    <<1, 1, 1, 0>> = memory_pager:truncate_buffer(<<1, 1, 1>>, 4),
+    <<0, 0, 0, 0>> = memory_pager:truncate_buffer(<<>>, 0, 4),
+    <<1, 0, 0, 0>> = memory_pager:truncate_buffer(<<1>>, 1, 4),
+    <<1, 1, 0, 0>> = memory_pager:truncate_buffer(<<1, 1>>, 2, 4),
+    <<1, 1, 1, 0>> = memory_pager:truncate_buffer(<<1, 1, 1>>, 3, 4),
 
     ok.
 

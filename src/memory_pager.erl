@@ -37,10 +37,12 @@
     pagesize_in_bytes/1,
     pagenum_for_byte_index/2,
     collect/1,
-    truncate_buffer/2
+    truncate_buffer/3
 ]).
 
+%% Default page size
 -define(PAGE_SIZE, 1024).
+%% Initial capacity of the page list
 -define(NUM_PAGES, 32768).
 
 -type state() :: {Pages :: [page()], PageSize :: pos_integer()}.
@@ -78,25 +80,25 @@ get(PageNum, {Pages, _} = State) ->
 %% is not the same as the Page size, it will be truncated to fit the Page size.
 -spec set(PageNum :: pos_integer(), Buffer :: binary(), State :: state()) ->
     {ok, boolean(), state()}.
-set(PageNum, Buffer, {Pages, Size}) ->
-    Buf = truncate_buffer(Buffer, Size),
-    %% demand paging.  Via the array, a new page will be created if it doesn't exist
-    %NewPages = array:set(PageNum, create_page(PageNum, Size, Buf), Pages),
-    %{NewPages, Size}.
+set(PageNum, Buffer, {Pages, PageSize}) ->
+    BufSize = byte_size(Buffer),
+    Buf = truncate_buffer(Buffer, BufSize, PageSize),
+
+    %% A new page will be created if it doesn't exist
     case array:get(PageNum, Pages) of
         nil ->
-            %% New Data
-            NewPages = array:set(PageNum, create_page(PageNum, Size, Buf), Pages),
-            {ok, true, {NewPages, Size}};
+            %% Create data
+            NewPages = array:set(PageNum, create_page(PageNum, PageSize, Buf), Pages),
+            {ok, true, {NewPages, PageSize}};
         Page ->
             case Page =:= Buf of
                 true ->
-                    %% Already exists
-                    {ok, false, {Pages, Size}};
+                    %% Data already exists
+                    {ok, false, {Pages, PageSize}};
                 _ ->
-                    %% Update
-                    NewPages = array:set(PageNum, create_page(PageNum, Size, Buf), Pages),
-                    {ok, true, {NewPages, Size}}
+                    %% Update data
+                    NewPages = array:set(PageNum, create_page(PageNum, PageSize, Buf), Pages),
+                    {ok, true, {NewPages, PageSize}}
             end
     end.
 
@@ -107,13 +109,13 @@ num_of_pages({Pages, _}) ->
 
 %% @doc return the page number for the given byte index
 -spec pagenum_for_byte_index(Index :: pos_integer(), State :: state()) -> pos_integer().
-pagenum_for_byte_index(Index, {_, Size}) ->
-    Index div Size.
+pagenum_for_byte_index(Index, {_, PageSize}) ->
+    Index div PageSize.
 
 %% @doc Return the page size. This is set on creation
 -spec pagesize_in_bytes(State :: state()) -> pos_integer().
-pagesize_in_bytes({_, Size}) ->
-    Size.
+pagesize_in_bytes({_, PageSize}) ->
+    PageSize.
 
 %% @doc Return a list of all valid pages. Each entry in the list
 %% contains {PageNum, Page}.
@@ -121,33 +123,35 @@ pagesize_in_bytes({_, Size}) ->
 collect({Pages, _}) ->
     array:sparse_to_orddict(Pages).
 
+%% @doc Determine if 'Value' is a power of 2
+-spec power_of_two(Value :: pos_integer()) -> boolean().
+power_of_two(Value) ->
+    case (Value band (Value - 1)) of
+        0 -> true;
+        _ -> false
+    end.
+
 %% @private Create a page for the given buffer
-create_page(PageNum, Size, Buffer) ->
-    Offset = PageNum * Size,
+create_page(PageNum, PageSize, Buffer) ->
+    Offset = PageNum * PageSize,
     {Offset, Buffer}.
 
+%% @private
 %% Deal with incoming buffers that may not have the comfigured page size.
 %% - If the incoming buffer is the page size, do nothing and return the buffer
 %% - If the incoming buffer is larger than the page size, Copy page size bytes
 %% to a new buffer, return it, and disgard the rest.
 %% - If the incoming buffer is smaller than the page size, append '0s' to the
 %% buffer to make it the correct page size.
-truncate_buffer(Buffer, Size) when byte_size(Buffer) =:= Size ->
+truncate_buffer(Buffer, BufferSize, PageSize) when BufferSize =:= PageSize ->
     %% Same size, ok.
     Buffer;
-truncate_buffer(Buffer, Size) when byte_size(Buffer) > Size ->
+truncate_buffer(Buffer, BufferSize, PageSize) when BufferSize > PageSize ->
     %% Buffer is bigger
-    <<A:Size/binary, _/binary>> = Buffer,
+    <<A:PageSize/binary, _/binary>> = Buffer,
     A;
-truncate_buffer(Buffer, Size) ->
+truncate_buffer(Buffer, _, PageSize) ->
     %% Buffer is smaller append '0s'.
-    Diff = Size - byte_size(Buffer),
+    Diff = PageSize - byte_size(Buffer),
     Zeros = <<0:Diff/unit:8>>,
     <<Buffer/binary, Zeros/binary>>.
-
-%% @private Return true if Value is a power of two
-power_of_two(Value) ->
-    case (Value band (Value - 1)) of
-        0 -> true;
-        _ -> false
-    end.
