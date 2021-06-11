@@ -46,7 +46,7 @@
 -define(NUM_PAGES, 32768).
 
 -type state() :: {Pages :: [page()], PageSize :: pos_integer()}.
--type page() :: {Offset :: pos_integer(), Buffer :: binary()}.
+-type page() :: {Offset :: pos_integer(), Buffer :: binary(), Changed :: boolean()}.
 
 %% @doc Create a new memory pager with a default page size of 1024 bytes
 -spec new() -> state().
@@ -76,10 +76,15 @@ get(PageNum, {Pages, _} = State) ->
         Page -> {ok, Page, State}
     end.
 
-%% @doc Insert or update a buffer at the given page number. If the buffer
+%% @doc Create or update a buffer at the given page number. If the buffer
 %% is not the same as the Page size, it will be truncated to fit the Page size.
--spec set(PageNum :: pos_integer(), Buffer :: binary(), State :: state()) ->
-    {ok, boolean(), state()}.
+%%
+-spec set(
+    PageNum :: pos_integer(),
+    Buffer :: binary(),
+    State :: state()
+) ->
+    {ok, state()}.
 set(PageNum, Buffer, {Pages, PageSize}) ->
     BufSize = byte_size(Buffer),
     Buf = truncate_buffer(Buffer, BufSize, PageSize),
@@ -87,19 +92,20 @@ set(PageNum, Buffer, {Pages, PageSize}) ->
     %% A new page will be created if it doesn't exist
     case array:get(PageNum, Pages) of
         nil ->
-            %% Create data
-            NewPages = array:set(PageNum, create_page(PageNum, PageSize, Buf), Pages),
-            {ok, true, {NewPages, PageSize}};
-        Page ->
-            case Page =:= Buf of
-                true ->
-                    %% Data already exists
-                    {ok, false, {Pages, PageSize}};
-                _ ->
-                    %% Update data
-                    NewPages = array:set(PageNum, create_page(PageNum, PageSize, Buf), Pages),
-                    {ok, true, {NewPages, PageSize}}
-            end
+            %% Create data. Changed = false
+            NewPages = array:set(
+                PageNum,
+                make_page(PageNum, PageSize, Buf, false),
+                Pages
+            ),
+            {ok, {NewPages, PageSize}};
+        {_, _, _} ->
+            NewPages = array:set(
+                PageNum,
+                make_page(PageNum, PageSize, Buf, true),
+                Pages
+            ),
+            {ok, {NewPages, PageSize}}
     end.
 
 %% @doc Return the number of pages
@@ -108,7 +114,10 @@ num_of_pages({Pages, _}) ->
     array:sparse_size(Pages).
 
 %% @doc return the page number for the given byte index
--spec pagenum_for_byte_index(Index :: pos_integer(), State :: state()) -> pos_integer().
+-spec pagenum_for_byte_index(
+    Index :: pos_integer(),
+    State :: state()
+) -> pos_integer().
 pagenum_for_byte_index(Index, {_, PageSize}) ->
     Index div PageSize.
 
@@ -119,7 +128,9 @@ pagesize_in_bytes({_, PageSize}) ->
 
 %% @doc Return a list of all valid pages. Each entry in the list
 %% contains {PageNum, Page}.
--spec collect(State :: state()) -> [{PageNum :: pos_integer(), Page :: page()}].
+-spec collect(
+    State :: state()
+) -> [{PageNum :: pos_integer(), Page :: page()}].
 collect({Pages, _}) ->
     array:sparse_to_orddict(Pages).
 
@@ -131,10 +142,10 @@ power_of_two(Value) ->
         _ -> false
     end.
 
-%% @private Create a page for the given buffer
-create_page(PageNum, PageSize, Buffer) ->
+%% @private Make a page for the given buffer
+make_page(PageNum, PageSize, Buffer, Changed) ->
     Offset = PageNum * PageSize,
-    {Offset, Buffer}.
+    {Offset, Buffer, Changed}.
 
 %% @private
 %% Deal with incoming buffers that may not have the comfigured page size.
