@@ -46,7 +46,7 @@
 -define(NUM_PAGES, 32768).
 
 -type state() :: {Pages :: [page()], PageSize :: pos_integer()}.
--type page() :: {Offset :: pos_integer(), Buffer :: binary(), Changed :: boolean()}.
+-type page() :: {Offset :: pos_integer(), Buffer :: binary()}.
 
 %% @doc Create a new memory pager with a default page size of 1024 bytes
 -spec new() -> state().
@@ -76,9 +76,8 @@ get(PageNum, {Pages, _} = State) ->
         Page -> {ok, Page, State}
     end.
 
-%% @doc Create or update a buffer at the given page number. If the buffer
-%% is not the same as the Page size, it will be truncated to fit the Page size.
-%%
+%% @doc Set a buffer at the given page number. If the incoming buffer
+%% is not the same as the configured Page size, it will be truncated to fit the Page size.
 -spec set(
     PageNum :: pos_integer(),
     Buffer :: binary(),
@@ -89,24 +88,14 @@ set(PageNum, Buffer, {Pages, PageSize}) ->
     BufSize = byte_size(Buffer),
     Buf = truncate_buffer(Buffer, BufSize, PageSize),
 
-    %% A new page will be created if it doesn't exist
-    case array:get(PageNum, Pages) of
-        nil ->
-            %% Create data. Changed = false
-            NewPages = array:set(
-                PageNum,
-                make_page(PageNum, PageSize, Buf, false),
-                Pages
-            ),
-            {ok, {NewPages, PageSize}};
-        {_, _, _} ->
-            NewPages = array:set(
-                PageNum,
-                make_page(PageNum, PageSize, Buf, true),
-                Pages
-            ),
-            {ok, {NewPages, PageSize}}
-    end.
+    %% Calculate the offset of the buffer in relation to the pagenum
+    Offset = PageNum * PageSize,
+    UpdatedPages = array:set(
+        PageNum,
+        {Offset, Buf},
+        Pages
+    ),
+    {ok, {UpdatedPages, PageSize}}.
 
 %% @doc Return the number of pages
 -spec num_of_pages(State :: state()) -> pos_integer().
@@ -141,11 +130,6 @@ power_of_two(Value) ->
         0 -> true;
         _ -> false
     end.
-
-%% @private Make a page for the given buffer
-make_page(PageNum, PageSize, Buffer, Changed) ->
-    Offset = PageNum * PageSize,
-    {Offset, Buffer, Changed}.
 
 %% @private
 %% Deal with incoming buffers that may not have the comfigured page size.

@@ -20,10 +20,10 @@ api_test() ->
     Mp1 = gen_pages(4, Mp),
 
     [
-        {0, {Off0, B0, false}},
-        {1, {Off1, B1, false}},
-        {2, {Off2, B2, false}},
-        {3, {Off3, B3, false}}
+        {0, {Off0, B0}},
+        {1, {Off1, B1}},
+        {2, {Off2, B2}},
+        {3, {Off3, B3}}
     ] = memory_pager:collect(
         Mp1
     ),
@@ -51,30 +51,17 @@ api_test() ->
     {none, _} = memory_pager:get(5, Mp1),
 
     %% Check a page does exist and hasn't been changed
-    {ok, {_, Buf, false}, _} = memory_pager:get(2, Mp1),
+    {ok, {_, Buf}, _} = memory_pager:get(2, Mp1),
     ?assertEqual(X, Buf),
 
     %% Change a bunch of bytes to 0
     ChangeBuf = <<1:2/unit:8, 0:1022/unit:8>>,
     {ok, Mp2} = memory_pager:set(2, ChangeBuf, Mp1),
 
-    {ok, {Off2, ChangeBuf, true}, _} = memory_pager:get(2, Mp2),
+    {ok, {Off2, ChangeBuf}, _} = memory_pager:get(2, Mp2),
 
     4 = memory_pager:num_of_pages(Mp2),
     1024 = memory_pager:pagesize_in_bytes(Mp2),
-    ok.
-
-change_test() ->
-    Mp = memory_pager:new(),
-    {none, _} = memory_pager:get(25, Mp),
-    {ok, Mp1} = memory_pager:set(25, mock_buffer(3), Mp),
-
-    %% Hasn't been changed yet
-    {ok, {_, _, false}, _} = memory_pager:get(25, Mp1),
-
-    %% Change it
-    {ok, Mp2} = memory_pager:set(25, mock_buffer(4), Mp1),
-    {ok, {_, _, true}, _} = memory_pager:get(25, Mp2),
     ok.
 
 truncate_test() ->
